@@ -33,7 +33,7 @@ from ._enums import JoinStyle, CapStyle
     "linewidth": ["linewidths", "lw"],
     "offset_transform": ["transOffset"],
 })
-class Collection(mcolorizer.ColorizingArtist):
+class Collection(mcolorizer.ColorizingArtist, cm.ScalarMappable):
     r"""
     Base class for Collections. Must be subclassed to be usable.
 
@@ -74,6 +74,13 @@ class Collection(mcolorizer.ColorizingArtist):
     # Whether to draw an edge by default.  Set on a
     # subclass-by-subclass basis.
     _edge_default = False
+
+    # Edge color mapping attributes
+    _edge_colors = None
+    _edge_cmap = None
+    _edge_norm = None
+    _edge_vmin = None
+    _edge_vmax = None
 
     @_docstring.interpd
     def __init__(self, *,
@@ -962,6 +969,11 @@ class Collection(mcolorizer.ColorizingArtist):
         self._us_linestyles = other._us_linestyles
         self._pickradius = other._pickradius
         self._hatch = other._hatch
+        self._edge_colors = other._edge_colors
+        self._edge_cmap = other._edge_cmap
+        self._edge_norm = other._edge_norm
+        self._edge_vmin = other._edge_vmin
+        self._edge_vmax = other._edge_vmax
 
         # update_from for scalarmappable
         self._A = other._A
@@ -969,6 +981,14 @@ class Collection(mcolorizer.ColorizingArtist):
         self.cmap = other.cmap
         self.stale = True
 
+    def set_edge_array(self, A):
+        """Set the edge colors array."""
+        self._edge_colors = A
+        self.stale = True
+
+    def get_edge_array(self):
+        """Return the edge colors array."""
+        return self._edge_colors
 
 class _CollectionWithSizes(Collection):
     """
@@ -1020,6 +1040,28 @@ class _CollectionWithSizes(Collection):
 class PathCollection(_CollectionWithSizes):
     r"""
     A collection of `~.path.Path`\s, as created by e.g. `~.Axes.scatter`.
+
+    Parameters
+    ----------
+    paths : list of `.path.Path`
+        The paths that will make up the `.Collection`.
+    sizes : array-like, default: None
+        The factor by which to scale each drawn Path. One unit squared in
+        display space is the same as one unit squared in data space.
+    **kwargs
+        Forwarded to `.Collection`. In addition to Collection parameters,
+        the following edge coloring kwargs are supported:
+
+        - ec : array-like, optional
+            Array of values to map to edge colors
+        - ec_cmap : str or `~matplotlib.colors.Colormap`, optional
+            Colormap for mapping *ec* to edge colors
+        - ec_norm : str or `~matplotlib.colors.Normalize`, optional
+            Normalization for the *ec* data
+        - ec_vmin, ec_vmax : float, optional
+            Define the data range that the colormap covers
+
+        See `.Collection` for a full list of valid kwargs.
     """
 
     def __init__(self, paths, sizes=None, **kwargs):
@@ -1033,16 +1075,64 @@ class PathCollection(_CollectionWithSizes):
             squared in the Path's data space is scaled to be ``sizes**2``
             points when rendered.
         **kwargs
-            Forwarded to `.Collection`.
+            Forwarded to `.Collection`. In addition to Collection parameters,
+            the following edge coloring kwargs are supported:
+
+            - ec : array-like, optional
+                Array of values to map to edge colors
+            - ec_cmap : str or `~matplotlib.colors.Colormap`, optional
+                Colormap for mapping *ec* to edge colors
+            - ec_norm : str or `~matplotlib.colors.Normalize`, optional
+                Normalization for the *ec* data
+            - ec_vmin, ec_vmax : float, optional
+                Define the data range that the colormap covers
         """
+        # Extract edge color mapping parameters before super().__init__
+        # to avoid them being processed as regular kwargs
+        self._ec = kwargs.pop('ec', None)
+        self._ec_cmap = kwargs.pop('ec_cmap', None)
+        self._ec_norm = kwargs.pop('ec_norm', None)
+        self._ec_vmin = kwargs.pop('ec_vmin', None)
+        self._ec_vmax = kwargs.pop('ec_vmax', None)
 
         super().__init__(**kwargs)
         self.set_paths(paths)
         self.set_sizes(sizes)
+
+        # Create edge colorizer if we have edge color data
+        if self._ec is not None:
+            self._edge_colorizer = mcolorizer.EdgeColorizer(
+                cmap=self._ec_cmap,
+                norm=self._ec_norm
+            )
+            self._id_edge_colorizer = self._edge_colorizer.callbacks.connect(
+                'changed', self.changed
+            )
+            self._edge_colorizer.set_edge_array(self._ec)
+            if self._ec_vmin is not None or self._ec_vmax is not None:
+                self._edge_colorizer.set_clim(vmin=self._ec_vmin, vmax=self._ec_vmax)
+        else:
+            self._edge_colorizer = None
+            self._id_edge_colorizer = None
+
         self.stale = True
+
+    def update_scalarmappable(self):
+        """Update both face and edge colors."""
+        super().update_scalarmappable()
+        # Update edge colors if we have an edge colorizer
+        if self._edge_colorizer is not None:
+            edge_array = self._edge_colorizer.get_edge_array()
+            if edge_array is not None:
+                edge_colors = self._edge_colorizer.to_rgba(edge_array)
+                self.set_edgecolor(edge_colors)
 
     def get_paths(self):
         return self._paths
+
+    def set_paths(self, paths):
+        self._paths = paths
+        self.stale = True
 
     def legend_elements(self, prop="colors", num="auto",
                         fmt=None, func=lambda x: x, **kwargs):
@@ -1205,7 +1295,7 @@ class PolyCollection(_CollectionWithSizes):
             Whether the polygon should be closed by adding a CLOSEPOLY
             connection at the end.
         **kwargs
-            Forwarded to `.Collection`.
+                Forwarded to `.Collection`.
         """
         super().__init__(**kwargs)
         self.set_sizes(sizes)
@@ -1330,9 +1420,9 @@ class FillBetweenPolyCollection(PolyCollection):
         **kwargs
             Forwarded to `.PolyCollection`.
 
-        See Also
-        --------
-        .Axes.fill_between, .Axes.fill_betweenx
+            See Also
+            --------
+            .Axes.fill_between, .Axes.fill_betweenx
         """
         self.t_direction = t_direction
         self._interpolate = interpolate
@@ -1825,9 +1915,9 @@ class EventCollection(LineCollection):
         **kwargs
             Forwarded to `.LineCollection`.
 
-        Examples
-        --------
-        .. plot:: gallery/lines_bars_and_markers/eventcollection_demo.py
+            Examples
+            --------
+            .. plot:: gallery/lines_bars_and_markers/eventcollection_demo.py
         """
         super().__init__([],
                          linewidths=linewidth, linestyles=linestyle,
@@ -2203,6 +2293,19 @@ class TriMesh(Collection):
         renderer.draw_gouraud_triangles(gc, verts, colors, transform.frozen())
         gc.restore()
         renderer.close_group(self.__class__.__name__)
+        self.stale = False
+
+    def get_edgecolor(self):
+        # docstring inherited
+        # Note that we want to return an array of shape (N*M, 4)
+        # a flattened RGBA collection
+        return super().get_edgecolor().reshape(-1, 4)
+
+    def get_facecolor(self):
+        # docstring inherited
+        # Note that we want to return an array of shape (N*M, 4)
+        # a flattened RGBA collection
+        return super().get_facecolor().reshape(-1, 4)
 
 
 class _MeshData:

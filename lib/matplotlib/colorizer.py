@@ -311,6 +311,37 @@ class Colorizer:
         self.norm.clip = clip
 
 
+class EdgeColorizer(Colorizer):
+    """
+    Edge-specific colorizer that handles edge color mapping independently from face colors.
+    
+    This class enables separate color mapping for edge colors in scatter plots and
+    other collection-based plots.
+    
+    Parameters
+    ----------
+    cmap: colorbar.Colorbar or str or None, default: None
+        The colormap used to color edges.
+    norm: colors.Normalize or str or None, default: None
+        The normalization used to normalize the edge color data.
+    """
+    def __init__(self, cmap=None, norm=None):
+        super().__init__(cmap=cmap, norm=norm)
+        self._edge_array = None
+        
+    def set_edge_array(self, A):
+        """Set the edge color array."""
+        if A is None:
+            self._edge_array = None
+        else:
+            self._edge_array = np.asarray(A)
+        self.changed()
+        
+    def get_edge_array(self):
+        """Return the edge color array."""
+        return self._edge_array
+
+
 class _ColorizerInterface:
     """
     Base class that contains the interface to `Colorizer` objects from

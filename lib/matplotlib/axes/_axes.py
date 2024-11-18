@@ -4712,8 +4712,10 @@ class Axes(_AxesBase):
                       label_namer="y")
     @_docstring.interpd
     def scatter(self, x, y, s=None, c=None, marker=None, cmap=None, norm=None,
-                vmin=None, vmax=None, alpha=None, linewidths=None, *,
-                edgecolors=None, colorizer=None, plotnonfinite=False, **kwargs):
+            vmin=None, vmax=None, alpha=None, linewidths=None, *,
+            edgecolors=None, ec=None, ec_cmap=None, ec_norm=None,
+            ec_vmin=None, ec_vmax=None, colorizer=None, 
+            plotnonfinite=False, **kwargs):
         """
         A scatter plot of *y* vs. *x* with varying marker size and/or color.
 
@@ -4799,6 +4801,22 @@ class Axes(_AxesBase):
             For non-filled markers, *edgecolors* is ignored. Instead, the color
             is determined like with 'face', i.e. from *c*, *colors*, or
             *facecolors*.
+
+        ec : array-like, optional
+            The edge colors as values to be mapped to colors using *ec_cmap*
+            and *ec_norm*.
+
+        ec_cmap : str or `~matplotlib.colors.Colormap`, optional
+            The colormap to use for mapping edge colors.
+            If None and *cmap* is provided, will use *cmap*.
+            
+        ec_norm : str or `~matplotlib.colors.Normalize`, optional
+            The normalization to use for mapping edge colors.
+            If None and *norm* is provided, will use *norm*.
+            
+        ec_vmin, ec_vmax : float, optional
+            Define the data range that the edge colormap covers.
+            If None and *vmin*/*vmax* are provided, will use those values.
 
         %(colorizer_doc)s
 
@@ -4957,26 +4975,57 @@ class Axes(_AxesBase):
             alpha=alpha,
         )
         collection.set_transform(mtransforms.IdentityTransform())
+        
+        # Handle face colors
         if colors is None:
             if colorizer:
                 collection._set_colorizer_check_keywords(colorizer, cmap=cmap,
-                                                         norm=norm, vmin=vmin,
-                                                         vmax=vmax)
+                                                      norm=norm, vmin=vmin,
+                                                      vmax=vmax)
             else:
                 collection.set_cmap(cmap)
                 collection.set_norm(norm)
-            collection.set_array(c)
-            collection._scale_norm(norm, vmin, vmax)
+                collection.set_array(c)
+                collection._scale_norm(norm, vmin, vmax)
         else:
-            extra_kwargs = {
-                    'cmap': cmap, 'norm': norm, 'vmin': vmin, 'vmax': vmax
-                    }
-            extra_keys = [k for k, v in extra_kwargs.items() if v is not None]
-            if any(extra_keys):
-                keys_str = ", ".join(f"'{k}'" for k in extra_keys)
+            face_kwargs = {
+                'cmap': cmap, 'norm': norm, 'vmin': vmin, 'vmax': vmax
+            }
+            face_keys = [k for k, v in face_kwargs.items() if v is not None]
+            if any(face_keys):
+                keys_str = ", ".join(f"'{k}'" for k in face_keys)
                 _api.warn_external(
                     "No data for colormapping provided via 'c'. "
                     f"Parameters {keys_str} will be ignored")
+
+        # Handle edge colors
+        if edgecolors is None:
+            if colorizer:
+                collection._set_colorizer_check_keywords(colorizer, 
+                                                      cmap=ec_cmap or cmap,
+                                                      norm=ec_norm or norm,
+                                                      vmin=ec_vmin or vmin,
+                                                      vmax=ec_vmax or vmax,
+                                                      which='edge')
+            else:
+                collection.set_edgecolorcmap(ec_cmap or cmap)
+                collection.set_edgecolornorm(ec_norm or norm)
+                collection.set_edgecolorarray(ec)
+                collection._scale_edgecolornorm(ec_norm or norm, 
+                                              ec_vmin or vmin, 
+                                              ec_vmax or vmax)
+        else:
+            edge_kwargs = {
+                'ec_cmap': ec_cmap, 'ec_norm': ec_norm, 
+                'ec_vmin': ec_vmin, 'ec_vmax': ec_vmax
+            }
+            edge_keys = [k for k, v in edge_kwargs.items() if v is not None]
+            if any(edge_keys):
+                keys_str = ", ".join(f"'{k}'" for k in edge_keys)
+                _api.warn_external(
+                    "No data for colormapping provided via 'ec'. "
+                    f"Parameters {keys_str} will be ignored")
+
         collection._internal_update(kwargs)
 
         # Classic mode only:

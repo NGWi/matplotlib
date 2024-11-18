@@ -4858,7 +4858,7 @@ class Axes(_AxesBase):
 
         """
         # add edgecolors and linewidths to kwargs so they
-        # can be processed by normailze_kwargs
+        # can be processed by normalize_kwargs
         if edgecolors is not None:
             kwargs.update({'edgecolors': edgecolors})
         if linewidths is not None:
@@ -4938,7 +4938,7 @@ class Axes(_AxesBase):
             # filled, but have their fillstyle set to 'none'.  This is
             # to get:
             #
-            #  - respecting the fillestyle if set
+            #  - respecting the fillstyle if set
             #  - maintaining back-compatibility for querying the facecolor of
             #    the un-fillable markers.
             #

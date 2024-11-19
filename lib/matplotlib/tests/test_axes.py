@@ -70,10 +70,10 @@ def test_get_next_color():
         get_next_color_func=get_next_color
     )
     c, colors, _edgecolors = result
-    assert c == 'b', f"Expected color spec 'b', got {c}"
+    assert c == 'b', f"Expected c spec 'b', got {c}"
     assert np.array_equal(colors, [[0, 0, 1, 1]]), \
-                                f"Expected [[0, 0, 1, 1]], got {colors}"
-    assert _edgecolors is None, f"Expected edgecolors None, got {_edgecolors}"
+                                f"Expected colors(RGBA) = [[0, 0, 1, 1]], got {colors}"
+    assert _edgecolors is None, f"Expected _edgecolors = None, got {_edgecolors}"
 
 
 @check_figures_equal(extensions=["png"])

@@ -59,14 +59,21 @@ def get_next_color():
 
 
 def test_get_next_color():
+    """
+    Testing that our simplified helper function works with _parse_scatter_color_args.
+    """
     result = mpl.axes.Axes._parse_scatter_color_args(
-        c=None, 
+        c=None,
         edgecolors=None,
         kwargs={},
         xsize=2,
         get_next_color_func=get_next_color
     )
-    assert result.colors == 'blue'
+    c, colors, _edgecolors = result
+    assert c == 'b', f"Expected color spec 'b', got {c}"
+    assert np.array_equal(colors, [[0, 0, 1, 1]]), \
+                                f"Expected [[0, 0, 1, 1]], got {colors}"
+    assert _edgecolors is None, f"Expected edgecolors None, got {_edgecolors}"
 
 
 @check_figures_equal(extensions=["png"])

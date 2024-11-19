@@ -50,6 +50,25 @@ from matplotlib.testing._markers import needs_usetex
 #       the tests with multiple threads.
 
 
+def get_next_color():
+    """
+    Helper function for tests that need to call _parse_scatter_color_args directly.
+    Previously it was inserted in individual tests and would get flagged as untested.
+    """
+    return 'blue'
+
+
+def test_get_next_color():
+    result = mpl.axes.Axes._parse_scatter_color_args(
+        c=None, 
+        edgecolors=None,
+        kwargs={},
+        xsize=2,
+        get_next_color_func=get_next_color
+    )
+    assert result.colors == 'blue'
+
+
 @check_figures_equal(extensions=["png"])
 def test_invisible_axes(fig_test, fig_ref):
     ax = fig_test.subplots()
@@ -2905,9 +2924,6 @@ class TestScatter:
 
     @pytest.mark.parametrize('c_case, re_key', params_test_scatter_c)
     def test_scatter_c(self, c_case, re_key):
-        def get_next_color():
-            return 'blue'  # currently unused
-
         xsize = 4
         # Additional checking of *c* (introduced in #11383).
         REGEXP = {
@@ -2999,9 +3015,6 @@ _result = namedtuple('_result', 'c, colors')
       _result(c=['b', 'g'], colors=np.array([[0, 0, 1, 1], [0, .5, 0, 1]]))),
      ])
 def test_parse_scatter_color_args(params, expected_result):
-    def get_next_color():
-        return 'blue'  # currently unused
-
     c, colors, _edgecolors = mpl.axes.Axes._parse_scatter_color_args(
         *params, get_next_color_func=get_next_color)
     assert c == expected_result.c
@@ -3026,9 +3039,6 @@ del _result
      (dict(color='r', edgecolor='g'), 'g'),
      ])
 def test_parse_scatter_color_args_edgecolors(kwargs, expected_edgecolors):
-    def get_next_color():
-        return 'blue'  # currently unused
-
     c = kwargs.pop('c', None)
     edgecolors = kwargs.pop('edgecolors', None)
     _, _, result_edgecolors = \
@@ -3038,9 +3048,6 @@ def test_parse_scatter_color_args_edgecolors(kwargs, expected_edgecolors):
 
 
 def test_parse_scatter_color_args_error():
-    def get_next_color():
-        return 'blue'  # currently unused
-
     with pytest.raises(ValueError,
                        match="RGBA values should be within 0-1 range"):
         c = np.array([[0.1, 0.2, 0.7], [0.2, 0.4, 1.4]])  # value > 1
@@ -3065,20 +3072,17 @@ COLOR_TEST_CASES = [
 @pytest.mark.parametrize('c, facecolor', COLOR_TEST_CASES)
 def test_parse_c_facecolor_warning_direct(c, facecolor):
     """Test the internal _parse_scatter_color_args method directly."""
-    def get_next_color():
-        return 'blue'
-
     # Test with facecolors (plural)
     with pytest.warns(UserWarning, match=WARN_MSG):
         mpl.axes.Axes._parse_scatter_color_args(
             c=c, edgecolors=None, kwargs={'facecolors': facecolor},
-            xsize=2, get_next_color_func=get_next_color)
+            xsize=2, get_next_color_func=get_next_color())
 
     # Test with facecolor (singular)
     with pytest.warns(UserWarning, match=WARN_MSG):
         mpl.axes.Axes._parse_scatter_color_args(
             c=c, edgecolors=None, kwargs={'facecolor': facecolor},
-            xsize=2, get_next_color_func=get_next_color)
+            xsize=2, get_next_color_func=get_next_color())
 
 
 @pytest.mark.parametrize('c, facecolor', COLOR_TEST_CASES)
@@ -9057,9 +9061,6 @@ def test_child_axes_removal():
 
 
 def test_scatter_color_repr_error():
-
-    def get_next_color():
-        return 'blue'  # pragma: no cover
     msg = (
             r"'c' argument must be a color, a sequence of colors"
             r", or a sequence of numbers, not 'red\\n'"
